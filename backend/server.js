@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 mongoose.connect(
-  'mongodb+srv://test:test@softwareengineering.mcmtiy2.mongodb.net/?retryWrites=true&w=majority',
+  'mongodb+srv://test:test@softwareengineering.mcmtiy2.mongodb.net/?retryWrites=true&w=majority&appName=SoftwareEngineering',
   { useNewUrlParser: true, useUnifiedTopology: true }
 ).then(() => console.log('MongoDB Connected'))
   .catch(err => console.log(err));
@@ -21,5 +21,5 @@ app.get('/', (req, res) => {
 
 app.use('/api', authRoutes);
 
-const PORT = 3000;
+const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

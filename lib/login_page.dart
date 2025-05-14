@@ -13,35 +13,35 @@ class LoginPage extends StatelessWidget {
 
     if (username.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Both fields are required')),
+        const SnackBar(content: Text('Both fields are required')),
       );
       return;
     }
 
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.29.154:3000/api/login'),
+        Uri.parse('http://192.168.29.154:5000/api/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'username': username,
           'password': password,
         }),
-      );
+      ).timeout(const Duration(seconds: 10));
 
+      final responseBody = jsonDecode(response.body);
+      
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', data['token']);
+        await prefs.setString('token', responseBody['token']);
         Navigator.pushReplacementNamed(context, '/dashboard');
       } else {
-        final error = jsonDecode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error['message'] ?? 'Login failed')),
+          SnackBar(content: Text(responseBody['message'] ?? 'Login failed')),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An error occurred: $e')),
+        SnackBar(content: Text('Error: ${e.toString()}')),
       );
     }
   }
@@ -64,7 +64,6 @@ class LoginPage extends StatelessWidget {
                 const SizedBox(height: 8),
                 const Text('Welcome to TRACKER',
                     style: TextStyle(fontSize: 14, color: Colors.grey)),
-
                 const SizedBox(height: 32),
                 TextField(
                   controller: usernameController,
@@ -86,13 +85,12 @@ class LoginPage extends StatelessWidget {
                     border: InputBorder.none,
                   ),
                 ),
-
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () => loginUser(context),
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
-                    backgroundColor: Color(0xFF3E5BFF),
+                    backgroundColor: const Color(0xFF3E5BFF),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
