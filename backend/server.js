@@ -1,0 +1,25 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const authRoutes = require('./routes/auth');
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+mongoose.connect(
+  'mongodb+srv://test:test@softwareengineering.mcmtiy2.mongodb.net/?retryWrites=true&w=majority',
+  { useNewUrlParser: true, useUnifiedTopology: true }
+).then(() => console.log('MongoDB Connected'))
+  .catch(err => console.log(err));
+
+// Add this before your other routes
+app.get('/', (req, res) => {
+  res.send('Budget Tracker API is running');
+});
+
+app.use('/api', authRoutes);
+
+const PORT = 3000;
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

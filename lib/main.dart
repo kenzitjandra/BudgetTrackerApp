@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'login_page.dart';
 import 'register_page.dart';
+import 'dashboard_page.dart'; // 👈 Import the dashboard page
 
 void main() {
   runApp(TrackerApp());
@@ -19,6 +20,7 @@ class TrackerApp extends StatelessWidget {
       routes: {
         '/login': (context) => LoginPage(),
         '/register': (context) => RegisterPage(),
+        '/dashboard': (context) => DashboardPage(), // 👈 Register dashboard route
       },
     );
   }
