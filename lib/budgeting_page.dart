@@ -21,14 +21,22 @@ class BudgetingPage extends StatefulWidget {
 }
 
 class _BudgetingPageState extends State<BudgetingPage> {
-  double budget = 0.0;
   final budgetController = TextEditingController();
+  Map<String, double> _monthlyBudgets = {};
 
   Map<String, List<SplitCategory>> _monthlySplitCategories = {};
   DateTime _selectedMonth = DateTime.now();
 
   String _getMonthKey(DateTime month) {
     return "${month.year}-${month.month.toString().padLeft(2, '0')}";
+  }
+
+  void _loadBudgetForSelectedMonth() {
+    final monthKey = _getMonthKey(_selectedMonth);
+    final currentBudget = _monthlyBudgets[monthKey] ?? 0.0;
+    budgetController.text = currentBudget.toStringAsFixed(
+      3,
+    ); // Using .000 format
   }
 
   List<SplitCategory> _getCurrentMonthSplitCategories() {
@@ -79,8 +87,8 @@ class _BudgetingPageState extends State<BudgetingPage> {
   @override
   void initState() {
     super.initState();
-    budgetController.text = budget.toStringAsFixed(2);
     _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+    _loadBudgetForSelectedMonth();
   }
 
   double get totalSplitPercentage {
@@ -95,6 +103,7 @@ class _BudgetingPageState extends State<BudgetingPage> {
         _selectedMonth.month - 1,
         1,
       );
+      _loadBudgetForSelectedMonth();
     });
   }
 
@@ -105,6 +114,7 @@ class _BudgetingPageState extends State<BudgetingPage> {
         _selectedMonth.month + 1,
         1,
       );
+      _loadBudgetForSelectedMonth();
     });
   }
 
@@ -181,7 +191,9 @@ class _BudgetingPageState extends State<BudgetingPage> {
   void _showEditSplitCategoryDialog(SplitCategory categoryToEdit) {
     final nameController = TextEditingController(text: categoryToEdit.name);
     final percentageController = TextEditingController(
-      text: categoryToEdit.percentage.toStringAsFixed(0),
+      text: categoryToEdit.percentage.toStringAsFixed(
+        0,
+      ), // For editing, 0 decimal is fine in dialog
     );
 
     showDialog(
@@ -376,16 +388,13 @@ class _BudgetingPageState extends State<BudgetingPage> {
         _getCurrentMonthSplitCategories();
 
     return Scaffold(
-      backgroundColor: const Color(
-        0xFF1400FF,
-      ), // Main background for ledger area
+      backgroundColor: Colors.blue.shade800, // Changed background color here
       body: SingleChildScrollView(
         child: Column(
           children: [
             Container(
-              // White top card
               padding: EdgeInsets.only(
-                top: statusBarHeight + 16.0, // Space for status bar + padding
+                top: statusBarHeight + 16.0,
                 left: 16.0,
                 right: 16.0,
                 bottom: 20.0,
@@ -405,7 +414,6 @@ class _BudgetingPageState extends State<BudgetingPage> {
                 ],
               ),
               child: Column(
-                // Content of the white card
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildMonthSelector(),
@@ -422,8 +430,10 @@ class _BudgetingPageState extends State<BudgetingPage> {
                   TextField(
                     controller: budgetController,
                     onChanged: (value) {
+                      final newBudgetValue = double.tryParse(value) ?? 0.0;
+                      final monthKey = _getMonthKey(_selectedMonth);
                       setState(() {
-                        budget = double.tryParse(value) ?? 0.0;
+                        _monthlyBudgets[monthKey] = newBudgetValue;
                       });
                     },
                     keyboardType: const TextInputType.numberWithOptions(
@@ -545,6 +555,13 @@ class _BudgetingPageState extends State<BudgetingPage> {
                               width: 1.0,
                             ),
                             borderRadius: BorderRadius.circular(6.0),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.blue.withOpacity(0.1),
+                                blurRadius: 3,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
                           ),
                           child: Icon(
                             Icons.add,
@@ -557,23 +574,21 @@ class _BudgetingPageState extends State<BudgetingPage> {
                   ),
                 ],
               ),
-            ), // End of white top card Container
-            // --- "Ledger" Title ---
+            ),
             Padding(
               padding: const EdgeInsets.only(top: 32.0, bottom: 16.0),
               child: Center(
                 child: Text(
                   'Ledger',
                   style: TextStyle(
-                    color: Colors.white,
+                    color:
+                        Colors.white, // Ledger title color contrast with new bg
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ),
-
-            // --- Column Labels for Ledger ---
             Padding(
               padding: const EdgeInsets.only(
                 left: 16,
@@ -622,10 +637,7 @@ class _BudgetingPageState extends State<BudgetingPage> {
                 ],
               ),
             ),
-
-            // --- End of Column Labels for Ledger ---
             ListView.builder(
-              // Ledger items
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
@@ -669,17 +681,13 @@ class _BudgetingPageState extends State<BudgetingPage> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 12.0,
-                    ), // Horizontal padding removed for Row
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
                     child: Row(
                       children: <Widget>[
                         Expanded(
                           flex: 5,
                           child: Padding(
-                            padding: const EdgeInsets.only(
-                              left: 16.0,
-                            ), // Padding for text within column
+                            padding: const EdgeInsets.only(left: 16.0),
                             child: Text(
                               amount,
                               textAlign: TextAlign.left,
@@ -709,9 +717,7 @@ class _BudgetingPageState extends State<BudgetingPage> {
                         Expanded(
                           flex: 3,
                           child: Padding(
-                            padding: const EdgeInsets.only(
-                              right: 16.0,
-                            ), // Padding for text within column
+                            padding: const EdgeInsets.only(right: 16.0),
                             child: Text(
                               dateText,
                               textAlign: TextAlign.right,
@@ -729,8 +735,55 @@ class _BudgetingPageState extends State<BudgetingPage> {
                 );
               },
             ),
-            const SizedBox(height: 80), // Bottom spacing for FAB
+            const SizedBox(height: 80),
           ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              offset: const Offset(0, -3),
+              blurRadius: 5.0,
+            ),
+          ],
+        ),
+        child: BottomAppBar(
+          color: Colors.white,
+          elevation: 0,
+          shape: const CircularNotchedRectangle(),
+          notchMargin: 8.0,
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            height: 60,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: <Widget>[
+                IconButton(
+                  icon: const Icon(Icons.home, color: Colors.black54),
+                  onPressed: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    }
+                  },
+                  tooltip: 'Home',
+                ),
+                const SizedBox(width: 48),
+                IconButton(
+                  icon: Icon(Icons.receipt_long, color: Colors.blue.shade700),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('View Sheets Tapped (Placeholder)'),
+                      ),
+                    );
+                  },
+                  tooltip: 'View Sheets',
+                ),
+              ],
+            ),
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -744,44 +797,10 @@ class _BudgetingPageState extends State<BudgetingPage> {
           );
         },
         tooltip: 'Add New Ledger Entry',
-        shape: const CircleBorder(), // Makes the FAB circular
+        shape: const CircleBorder(),
         child: const Icon(Icons.add, size: 30),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.white,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8.0,
-        elevation: 8.0,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: <Widget>[
-              IconButton(
-                icon: const Icon(Icons.home_filled, color: Colors.black54),
-                onPressed: () {
-                  if (Navigator.canPop(context)) {
-                    Navigator.pop(context);
-                  }
-                },
-                tooltip: 'Home',
-              ),
-              const SizedBox(width: 48), // Space for FAB
-              IconButton(
-                icon: const Icon(
-                  Icons.table_chart_outlined,
-                  color: Colors.black54,
-                ),
-                onPressed: () {
-                  /* Navigate to ledger/table view */
-                },
-                tooltip: 'View Sheets',
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
