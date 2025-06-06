@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'budgeting_page.dart'; // Make sure this path is correct
+<<<<<<< HEAD
 import 'expense_page.dart';
+=======
+>>>>>>> 3a997454ddeae1766d309707226a4795d6202e90
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -205,12 +208,26 @@ class HomePage extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
+<<<<<<< HEAD
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const ExpensePage()),
           );
         },
         child: const Icon(Icons.add),
+=======
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('FAB Tapped: Add New Transaction (Placeholder)'),
+            ),
+          );
+        },
+        shape: const CircleBorder(),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.blue.shade800,
+        tooltip: 'Add Transaction',
+        child: const Icon(Icons.add, size: 30),
+>>>>>>> 3a997454ddeae1766d309707226a4795d6202e90
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
