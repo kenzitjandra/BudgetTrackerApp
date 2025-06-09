@@ -1,4 +1,54 @@
 import 'package:flutter/material.dart';
+import 'expense_page.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
+Future<double?> fetchBudget(String userId, String month, String token) async {
+  final url = Uri.parse('http://localhost:5000/api/budget/$userId/$month');
+  final response = await http.get(url, headers: {
+    'Authorization': 'Bearer $token',
+  });
+
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+    print("Raw budget response: ${response.body}");
+
+    if (data == null || data['totalBudget'] == null) {
+      print("No budget data returned");
+      return null;
+    }
+
+    return (data['totalBudget'] as num).toDouble();
+  } else {
+    print("Failed to fetch budget: ${response.body}");
+    return null;
+  }
+}
+
+
+Future<void> submitBudget(String userId, double totalBudget, Map<String, double> categorySplit, String month, String token) async {
+  final url = Uri.parse('http://localhost:5000/api/budget');
+  final response = await http.post(
+    url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+    body: jsonEncode({
+      'userId': userId,
+      'totalBudget': totalBudget,
+      'categorySplit': categorySplit,
+      'month': month,
+    }),
+  );
+
+  if (response.statusCode == 200) {
+    print("Budget updated: ${response.body}");
+  } else {
+    print("Failed to update budget: ${response.body}");
+  }
+}
 
 // Data Model for Split Categories
 class SplitCategory {
@@ -21,11 +71,45 @@ class BudgetingPage extends StatefulWidget {
 }
 
 class _BudgetingPageState extends State<BudgetingPage> {
+  String? userId;
+  String? token;
+  final Map<String, double> _submittedBudgets = {};
   final budgetController = TextEditingController();
-  Map<String, double> _monthlyBudgets = {};
+  final Map<String, double> _monthlyBudgets = {};
 
-  Map<String, List<SplitCategory>> _monthlySplitCategories = {};
+  final Map<String, List<SplitCategory>> _monthlySplitCategories = {};
   DateTime _selectedMonth = DateTime.now();
+
+  Future<void> loadUserCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUserId = prefs.getString('userId');
+    final savedToken = prefs.getString('token');
+
+    setState(() {
+      userId = savedUserId;
+      token = savedToken;
+    });
+
+    if (savedUserId != null && savedToken != null) {
+      final currentMonth = _getMonthKey(_selectedMonth);
+      final fetchedBudget = await fetchBudget(savedUserId, currentMonth, savedToken);
+      if (fetchedBudget != null) {
+        setState(() {
+          _submittedBudgets[currentMonth] = fetchedBudget;
+          _monthlyBudgets[currentMonth] = fetchedBudget;
+          budgetController.text = fetchedBudget.toStringAsFixed(0);
+        });
+      }
+    }
+  }
+
+  Map<String, double> _buildCategorySplitMap() {
+    final splitMap = <String, double>{};
+    for (final category in _getCurrentMonthSplitCategories()) {
+      splitMap[category.name] = category.percentage;
+    }
+    return splitMap;
+  }
 
   String _getMonthKey(DateTime month) {
     return "${month.year}-${month.month.toString().padLeft(2, '0')}";
@@ -87,6 +171,7 @@ class _BudgetingPageState extends State<BudgetingPage> {
   @override
   void initState() {
     super.initState();
+    loadUserCredentials();
     _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
     _loadBudgetForSelectedMonth();
   }
@@ -98,24 +183,18 @@ class _BudgetingPageState extends State<BudgetingPage> {
 
   void _previousMonth() {
     setState(() {
-      _selectedMonth = DateTime(
-        _selectedMonth.year,
-        _selectedMonth.month - 1,
-        1,
-      );
+      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1, 1);
       _loadBudgetForSelectedMonth();
     });
+    loadUserCredentials(); // fetch for new month
   }
 
   void _nextMonth() {
     setState(() {
-      _selectedMonth = DateTime(
-        _selectedMonth.year,
-        _selectedMonth.month + 1,
-        1,
-      );
+      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 1);
       _loadBudgetForSelectedMonth();
     });
+    loadUserCredentials(); // fetch for new month
   }
 
   void _showAddSplitCategoryDialog() {
@@ -344,7 +423,8 @@ class _BudgetingPageState extends State<BudgetingPage> {
     );
   }
 
-  Widget _buildMonthSelector() {
+  Widget _buildMonthSelector(Color primaryBlue) {
+    // Pass color here
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 0.0),
       child: Row(
@@ -364,7 +444,7 @@ class _BudgetingPageState extends State<BudgetingPage> {
             style: TextStyle(
               fontSize: 25,
               fontWeight: FontWeight.bold,
-              color: Colors.blue.shade600,
+              color: primaryBlue, // Changed
             ),
           ),
           IconButton(
@@ -383,12 +463,14 @@ class _BudgetingPageState extends State<BudgetingPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Unified primary blue color from ExpensePage
+    final Color primaryBlue = const Color(0xFF4A90E2);
     final double statusBarHeight = MediaQuery.of(context).padding.top;
     final List<SplitCategory> currentDisplayCategories =
         _getCurrentMonthSplitCategories();
 
     return Scaffold(
-      backgroundColor: Colors.blue.shade800, // Changed background color here
+      backgroundColor: primaryBlue, // Changed
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -416,7 +498,7 @@ class _BudgetingPageState extends State<BudgetingPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildMonthSelector(),
+                  _buildMonthSelector(primaryBlue), // Pass color
                   const SizedBox(height: 20),
                   const Text(
                     'Budget',
@@ -427,6 +509,15 @@ class _BudgetingPageState extends State<BudgetingPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  Text(
+                    'Current Budget for ${_getMonthName(_selectedMonth.month)}: Rp ${_submittedBudgets[_getMonthKey(_selectedMonth)]?.toStringAsFixed(0) ?? "0"}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black.withOpacity(0.6),
+                    ),
+                  ),
+                  SizedBox(height: 8),
                   TextField(
                     controller: budgetController,
                     onChanged: (value) {
@@ -464,9 +555,7 @@ class _BudgetingPageState extends State<BudgetingPage> {
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.0),
                         borderSide: BorderSide(
-                          color: Theme.of(
-                            context,
-                          ).primaryColor.withOpacity(0.5),
+                          color: primaryBlue.withOpacity(0.5), // Changed
                           width: 1.5,
                         ),
                       ),
@@ -510,7 +599,7 @@ class _BudgetingPageState extends State<BudgetingPage> {
                         final category = currentDisplayCategories[index];
                         return _buildSplittingRow(
                           category,
-                          Colors.blue.shade700,
+                          primaryBlue, // Changed
                         );
                       },
                       separatorBuilder: (context, index) {
@@ -551,13 +640,13 @@ class _BudgetingPageState extends State<BudgetingPage> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             border: Border.all(
-                              color: Colors.blue.shade600,
+                              color: primaryBlue, // Changed
                               width: 1.0,
                             ),
                             borderRadius: BorderRadius.circular(6.0),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.blue.withOpacity(0.1),
+                                color: primaryBlue.withOpacity(0.1), // Changed
                                 blurRadius: 3,
                                 offset: Offset(0, 1),
                               ),
@@ -565,7 +654,7 @@ class _BudgetingPageState extends State<BudgetingPage> {
                           ),
                           child: Icon(
                             Icons.add,
-                            color: Colors.blue.shade700,
+                            color: primaryBlue, // Changed
                             size: 24.0,
                           ),
                         ),
@@ -575,6 +664,71 @@ class _BudgetingPageState extends State<BudgetingPage> {
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 175, 164, 164),
+                  foregroundColor: primaryBlue,
+                  minimumSize: Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () async {
+                  if (userId == null || token == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('User not logged in. Please log in again.')),
+                    );
+                    return;
+                  }
+
+                  final totalBudget = double.tryParse(budgetController.text) ?? 0.0;
+                  final categorySplit = _buildCategorySplitMap();
+                  final month = _getMonthKey(_selectedMonth); // e.g., "2025-06"
+
+                  if (totalBudget <= 0 || categorySplit.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please enter valid budget and splits.')),
+                    );
+                    return;
+                  }
+
+                  await submitBudget(userId!, totalBudget, categorySplit, month, token!);
+                  final newFetched = await fetchBudget(userId!, month, token!);
+                  setState(() {
+                    _submittedBudgets[month] = newFetched ?? 0.0;
+                  });
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Budget submitted successfully!')),
+                  );
+                },
+                child: const Text('Submit Budget'),
+              ),
+            ),
+
+            IconButton(
+              icon: Icon(Icons.delete_forever),
+              tooltip: 'Delete Budget',
+              onPressed: () async {
+                final month = _getMonthKey(_selectedMonth);
+                final url = Uri.parse('http://localhost:5000/api/budget/$userId/$month');
+                final response = await http.delete(url, headers: {
+                  'Authorization': 'Bearer $token',
+                });
+
+                if (response.statusCode == 200) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Budget deleted.')));
+                  setState(() {
+                    budgetController.text = '0.00';
+                    _monthlyBudgets.remove(month);
+                    _submittedBudgets.remove(month); // 👈 also clear display
+                  });
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete budget')));
+                }
+              },
+            ),
+
             Padding(
               padding: const EdgeInsets.only(top: 32.0, bottom: 16.0),
               child: Center(
@@ -771,7 +925,7 @@ class _BudgetingPageState extends State<BudgetingPage> {
                 ),
                 const SizedBox(width: 48),
                 IconButton(
-                  icon: Icon(Icons.receipt_long, color: Colors.blue.shade700),
+                  icon: Icon(Icons.receipt_long, color: primaryBlue), // Changed
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -788,13 +942,13 @@ class _BudgetingPageState extends State<BudgetingPage> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.white,
-        foregroundColor: Colors.blue.shade800,
+        foregroundColor: primaryBlue, // Changed
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('FAB Tapped: Add New Ledger Entry (Placeholder)'),
-            ),
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ExpensePage()),
           );
+          
         },
         tooltip: 'Add New Ledger Entry',
         shape: const CircleBorder(),

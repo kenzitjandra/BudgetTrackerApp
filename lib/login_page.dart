@@ -20,11 +20,7 @@ class LoginPage extends StatelessWidget {
 
     try {
       final response = await http.post(
-<<<<<<< HEAD
-        Uri.parse('http://192.168.1.5:5000/api/login'),
-=======
-        Uri.parse('http://192.168.29.154:5000/api/login'),
->>>>>>> 3a997454ddeae1766d309707226a4795d6202e90
+        Uri.parse('http://172.16.100.49:5000/api/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'username': username,
@@ -33,11 +29,17 @@ class LoginPage extends StatelessWidget {
       ).timeout(const Duration(seconds: 10));
 
       final responseBody = jsonDecode(response.body);
-      
-      if (response.statusCode == 200) {
+
+      if (response.statusCode == 200 &&
+          responseBody['token'] != null &&
+          responseBody['userId'] != null) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', responseBody['token']);
-        Navigator.pushReplacementNamed(context, '/dashboard');
+        await prefs.setString('userId', responseBody['userId']);
+
+        print('Token and userId saved successfully');
+
+        Navigator.pushReplacementNamed(context, '/dashboard'); // or your home route
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(responseBody['message'] ?? 'Login failed')),
