@@ -195,7 +195,7 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Welcome, Gill',
+                  Text('Welcome!',
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,

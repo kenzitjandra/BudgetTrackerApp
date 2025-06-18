@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 mongoose.connect(
-  'mongodb+srv://kenzitjandra:8vsGGgJIqnAkRsV6@firstcluster.oadprm9.mongodb.net/?retryWrites=true&w=majority&appName=firstCluster',
+  'mongodb+srv://kenzitjandra:8vsGGgJIqnAkRsV6@firstcluster.oadprm9.mongodb.net/budgetApp?retryWrites=true&w=majority&appName=firstCluster',
   { useNewUrlParser: true, useUnifiedTopology: true }
 ).then(() => console.log('MongoDB Connected'))
   .catch(err => console.log(err));

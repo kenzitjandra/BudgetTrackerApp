@@ -27,6 +27,19 @@ Future<void> addExpense(String userId, String date, double amount, String catego
   }
 }
 
+Future<Map<String, dynamic>?> fetchBudget(String userId, String month, String token) async {
+  final url = Uri.parse('http://localhost:5000/api/budget/$userId/$month');
+  final response = await http.get(url, headers: {
+    'Authorization': 'Bearer $token',
+  });
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  } else {
+    return null;
+  }
+}
+
 Future<List<Map<String, dynamic>>> fetchExpenses(String userId, String token) async {
   final url = Uri.parse('http://localhost:5000/api/expense/$userId');
   final response = await http.get(
@@ -57,6 +70,9 @@ class ExpensePage extends StatefulWidget {
 class _ExpensePageState extends State<ExpensePage> {
   String? userId;
   String? token;
+  double totalBudget = 0.0;
+  double totalExpenses = 0.0;
+  double dailyQuotaRemaining = 0.0;
   String _selectedNeeds = 'Needs';
   String _currentAmount = '0,00';
   DateTime _selectedDate = DateTime.now();
@@ -66,6 +82,28 @@ class _ExpensePageState extends State<ExpensePage> {
   void initState() {
     super.initState();
     loadUserCredentials();
+    _loadExpensePageData();
+  }
+
+  Future<void> _loadExpensePageData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('userId');
+    final token = prefs.getString('token');
+    final month = "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}";
+
+    if (userId != null && token != null) {
+      final budgetData = await fetchBudget(userId, month, token);
+      final expenseData = await fetchExpenses(userId, token);
+
+      setState(() {
+        totalBudget = (budgetData?['totalBudget'] ?? 0).toDouble();
+        totalExpenses = expenseData.fold(0.0, (sum, item) => sum + (item['amount'] as num).toDouble());
+
+        int currentDay = DateTime.now().day;
+        int totalDaysInMonth = DateUtils.getDaysInMonth(DateTime.now().year, DateTime.now().month);
+        dailyQuotaRemaining = (totalBudget / totalDaysInMonth) - (totalExpenses / currentDay);
+      });
+    }
   }
 
   Future<void> loadUserCredentials() async {
@@ -193,6 +231,7 @@ class _ExpensePageState extends State<ExpensePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Expense submitted!')),
     );
+    await _loadExpensePageData();
   }
 
   Future<void> deleteExpense(String expenseId) async {
@@ -258,28 +297,18 @@ class _ExpensePageState extends State<ExpensePage> {
                     style: TextStyle(color: Colors.white70, fontSize: 16),
                   ),
                   const SizedBox(height: 4),
+                  Text('Rp ${(totalBudget - totalExpenses).toStringAsFixed(0)}',
+                      style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold)),
+
+                  SizedBox(height: 8),
+
                   const Text(
-                    'Rp 1.000.000,00',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Daily Quota Remaining',
+                    'Total Remaining',
                     style: TextStyle(color: Colors.white70, fontSize: 16),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Rp 80.000,00',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  Text('Rp ${dailyQuotaRemaining.toStringAsFixed(0)}',
+                      style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 20),
                   const Row(
                     children: [

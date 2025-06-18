@@ -20,7 +20,7 @@ class LoginPage extends StatelessWidget {
 
     try {
       final response = await http.post(
-        Uri.parse('http://172.16.100.49:5000/api/login'),
+        Uri.parse('http://192.168.0.182:5000/api/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'username': username,

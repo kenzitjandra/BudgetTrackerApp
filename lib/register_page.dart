@@ -22,7 +22,7 @@ class RegisterPage extends StatelessWidget {
 
     try {
       final response = await http.post(
-        Uri.parse('http://172.16.100.49:5000/api/register'), // use 10.0.2.2 for Android emulator
+        Uri.parse('http://192.168.0.182:5000/api/register'), // use 10.0.2.2 for Android emulator
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email,
